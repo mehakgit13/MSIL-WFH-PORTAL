@@ -37,10 +37,8 @@ function WFH() {
   const handleGenerateTeamWFH = async () => {
     try {
       const res = await api.post("/team-wfh/generate-team");
-
       await loadWFH();
       await loadTeamMonth();
-
       setShowTeamWFH(true);
 
       alert(res.data.message || "Team WFH loaded successfully.");
@@ -58,12 +56,32 @@ function WFH() {
     }
   };
 
-  const shiftWFH = async (id) => {
+  const shiftWFH = async (id, currentDate) => {
+    const selected = prompt(
+      `Current WFH date: ${formatDate(currentDate)}\n\nEnter new WFH date in YYYY-MM-DD format.\nYou can prepone or postpone, but the date must be a free working day.`
+    );
+
+    if (!selected) return;
+
+    const selectedDate = new Date(selected);
+    const isInvalid = Number.isNaN(selectedDate.getTime());
+
+    if (isInvalid) {
+      alert("Invalid date format. Please enter date as YYYY-MM-DD.");
+      return;
+    }
+
     try {
-      await api.put(`/wfh/shift/${id}`);
+      await api.put(`/wfh/shift/${id}`, {
+        newDate: selected,
+      });
 
       alert("WFH date shifted successfully.");
+
       await loadWFH();
+      await loadTeamMonth();
+
+      window.dispatchEvent(new Event("calendar-refresh"));
     } catch (error) {
       alert(error.response?.data?.message || "Unable to shift WFH date.");
     }
@@ -79,7 +97,9 @@ function WFH() {
       return;
     }
 
-    const reason = prompt("Enter reason for WFH swap request:");
+    const reason = prompt(
+      `Your WFH date: ${formatDate(myFutureWFH.date)}\n\nEnter reason for WFH swap request:`
+    );
 
     if (!reason) return;
 
@@ -193,7 +213,8 @@ function WFH() {
               <p>2 random working days are allocated every month.</p>
               <p>No two employees should have WFH on the same date.</p>
               <p>
-                Future WFH dates can be shifted or swapped with another employee.
+                Future WFH dates can be preponed, postponed, or swapped with
+                another employee.
               </p>
             </div>
           </div>
@@ -279,9 +300,9 @@ function WFH() {
                           item.status === "Shifted" ? (
                             <button
                               className="small-action-btn"
-                              onClick={() => shiftWFH(item._id)}
+                              onClick={() => shiftWFH(item._id, item.date)}
                             >
-                              Shift Date
+                              Shift / Prepone
                             </button>
                           ) : (
                             <span className="text-gray-500">Not allowed</span>

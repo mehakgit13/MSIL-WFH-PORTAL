@@ -60,6 +60,14 @@ export const getMyWFH = async (req, res) => {
 
 export const shiftWFHDate = async (req, res) => {
   try {
+    const { newDate } = req.body;
+
+    if (!newDate) {
+      return res.status(400).json({
+        message: "Please select a new WFH date.",
+      });
+    }
+
     const currentWFH = await WFH.findOne({
       _id: req.params.id,
       employee: req.user._id,
@@ -73,62 +81,78 @@ export const shiftWFHDate = async (req, res) => {
 
     if (currentWFH.status === "Used") {
       return res.status(400).json({
-        message: "Used WFH cannot be shifted.",
+        message: "Past/used WFH cannot be shifted.",
       });
     }
 
-    let newDate = new Date(currentWFH.date);
-    newDate.setDate(newDate.getDate() + 1);
+    const selectedDate = new Date(newDate);
 
-    for (let i = 0; i < 90; i++) {
-      const start = new Date(
-        newDate.getFullYear(),
-        newDate.getMonth(),
-        newDate.getDate(),
-        0,
-        0,
-        0,
-        0
-      );
+    selectedDate.setHours(0, 0, 0, 0);
 
-      const end = new Date(
-        newDate.getFullYear(),
-        newDate.getMonth(),
-        newDate.getDate(),
-        23,
-        59,
-        59,
-        999
-      );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      const alreadyAssigned = await WFH.countDocuments({
-        _id: { $ne: currentWFH._id },
-        date: { $gte: start, $lte: end },
+    if (selectedDate < today) {
+      return res.status(400).json({
+        message: "You cannot shift WFH to a past date.",
       });
-
-      if (!isWeekend(newDate) && alreadyAssigned === 0) {
-        currentWFH.originalDate = currentWFH.originalDate || currentWFH.date;
-        currentWFH.date = newDate;
-        currentWFH.status = "Shifted";
-        currentWFH.type = "Shifted";
-        currentWFH.reason = "Employee shifted allocated WFH day";
-
-        await currentWFH.save();
-
-        return res.json({
-          message: "WFH date shifted successfully.",
-          request: currentWFH,
-        });
-      }
-
-      newDate.setDate(newDate.getDate() + 1);
     }
 
-    res.status(400).json({
-      message: "No available working day found for shifting WFH.",
+    const day = selectedDate.getDay();
+
+    if (day === 0 || day === 6) {
+      return res.status(400).json({
+        message: "WFH cannot be shifted to Saturday or Sunday.",
+      });
+    }
+
+    const start = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const end = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const alreadyAssigned = await WFH.findOne({
+      _id: { $ne: currentWFH._id },
+      date: { $gte: start, $lte: end },
+    }).populate("employee", "name employeeId");
+
+    if (alreadyAssigned) {
+      return res.status(400).json({
+        message: `This date is already assigned to ${alreadyAssigned.employee?.name}. Please select another free working day or send a swap request.`,
+      });
+    }
+
+    currentWFH.originalDate = currentWFH.originalDate || currentWFH.date;
+    currentWFH.date = selectedDate;
+    currentWFH.status = "Shifted";
+    currentWFH.type = "Shifted";
+    currentWFH.reason = "Employee shifted WFH date";
+
+    await currentWFH.save();
+
+    res.json({
+      message: "WFH date shifted successfully.",
+      request: currentWFH,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
