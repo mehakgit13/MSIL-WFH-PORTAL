@@ -1,0 +1,28 @@
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import RightSidebar from "../components/RightSidebar";
+import ThemeToggle from "../components/ThemeToggle";
+
+function DashboardLayout({ children }) {
+  return (
+    <div className="portal-shell">
+      <Sidebar />
+
+      <div className="portal-main">
+        <Header />
+
+        <div className="portal-body">
+          <main className="portal-content">
+            {children}
+          </main>
+
+          <RightSidebar />
+        </div>
+      </div>
+
+      <ThemeToggle />
+    </div>
+  );
+}
+
+export default DashboardLayout;

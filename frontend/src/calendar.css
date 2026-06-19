@@ -1,0 +1,69 @@
+.holiday-day {
+  background:#ef4444 !important;
+  color:white !important;
+  border-radius:50%;
+}
+
+.leave-day {
+  background:#22c55e !important;
+  color:white !important;
+  border-radius:50%;
+}
+
+.wfh-day {
+  background:#2563eb !important;
+  color:white !important;
+  border-radius:50%;
+}
+.calendar-holiday {
+  background: #dc2626 !important;
+  color: white !important;
+  border-radius: 999px;
+}
+
+.calendar-leave {
+  background: #f59e0b !important;
+  color: white !important;
+  border-radius: 999px;
+}
+
+.calendar-wfh {
+  background: #16a34a !important;
+  color: white !important;
+  border-radius: 999px;
+}
+
+.react-calendar {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+}
+
+.react-calendar__tile {
+  border-radius: 12px;
+}
+
+.sidebar-calendar-wrap .calendar-day-weekend abbr {
+  color: #dc2626 !important;
+  background: transparent !important;
+}
+
+.sidebar-calendar-wrap .calendar-day-leave abbr {
+  background: #f97316 !important;
+  color: white !important;
+}
+
+.sidebar-calendar-wrap .calendar-day-wfh abbr {
+  background: #22c55e !important;
+  color: white !important;
+}
+
+.sidebar-calendar-wrap .calendar-day-holiday abbr {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+.sidebar-calendar-wrap .react-calendar__tile--active abbr {
+  background: #2563eb !important;
+  color: white !important;
+}
