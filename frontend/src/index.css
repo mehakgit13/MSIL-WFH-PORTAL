@@ -2469,4 +2469,38 @@ body {
 
 .legend-blue {
   background: #2563eb !important;
+}.wfh-action-grid.two-actions {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .wfh-action-grid.two-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wfh-action-grid.three-actions {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .wfh-action-grid.three-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reject-btn {
+  margin-left: 8px;
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+
+.wfh-action-grid.three-actions {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .wfh-action-grid.three-actions {
+    grid-template-columns: 1fr;
+  }
 }

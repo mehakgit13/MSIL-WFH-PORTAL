@@ -22,7 +22,7 @@ function Sidebar() {
 
   { title: "Work From Home", path: "/wfh", icon: <HomeWorkOutlinedIcon /> },
   { title: "WFH History", path: "/wfh/history", icon: <HomeWorkOutlinedIcon /> },
-
+{ title: "WFH Swap Requests", path: "/wfh/swap-requests", icon: <HomeWorkOutlinedIcon /> },
   { title: "Reports", path: "/reports", icon: <AssessmentOutlinedIcon /> },
   { title: "Team Members", path: "/team", icon: <GroupsOutlinedIcon /> },
   { title: "Policies", path: "/rules", icon: <PolicyOutlinedIcon /> },

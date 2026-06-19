@@ -25,7 +25,7 @@ import LeaveDetails from "./pages/LeaveManagement/LeaveDetails";
 import ApplyWFH from "./pages/WFHManagement/ApplyWFH";
 import WFHHistory from "./pages/WFHManagement/WFHHistory";
 import WFHDetails from "./pages/WFHManagement/WFHDetails";
-
+import WFHSwapRequests from "./pages/WFHManagement/WFHSwapRequests";
 function App() {
   return (
     <BrowserRouter>
@@ -54,7 +54,7 @@ function App() {
         {/* <Route path="/announcements" element={<Announcements />} />
         <Route path="/notices" element={<CompanyNotices />} />
         <Route path="/notices/:id" element={<NoticeDetails />} /> */}
-
+<Route path="/wfh/swap-requests" element={<WFHSwapRequests />} />
         <Route path="/activity/:id" element={<ActivityDetails />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/team" element={<TeamMembers />} />

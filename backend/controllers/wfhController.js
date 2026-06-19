@@ -5,6 +5,10 @@ const YEARLY_WFH_LIMIT = 24;
 const startOfYear = (year) => new Date(year, 0, 1);
 const endOfYear = (year) => new Date(year, 11, 31, 23, 59, 59, 999);
 
+function isWeekend(date) {
+  return date.getDay() === 0 || date.getDay() === 6;
+}
+
 export const getMyWFH = async (req, res) => {
   try {
     const year = new Date().getFullYear();
@@ -54,13 +58,6 @@ export const getMyWFH = async (req, res) => {
   }
 };
 
-export const generateMyWFHDays = async (req, res) => {
-  res.status(400).json({
-    message:
-      "Use Generate Team WFH Allocation. WFH is now generated for all team members.",
-  });
-};
-
 export const shiftWFHDate = async (req, res) => {
   try {
     const currentWFH = await WFH.findOne({
@@ -69,43 +66,76 @@ export const shiftWFHDate = async (req, res) => {
     });
 
     if (!currentWFH) {
-      return res.status(404).json({ message: "WFH allocation not found" });
+      return res.status(404).json({
+        message: "WFH allocation not found.",
+      });
     }
 
     if (currentWFH.status === "Used") {
-      return res.status(400).json({ message: "Used WFH cannot be shifted" });
+      return res.status(400).json({
+        message: "Used WFH cannot be shifted.",
+      });
     }
 
     let newDate = new Date(currentWFH.date);
     newDate.setDate(newDate.getDate() + 1);
 
-    const existing = await WFH.find({ employee: req.user._id });
+    for (let i = 0; i < 90; i++) {
+      const start = new Date(
+        newDate.getFullYear(),
+        newDate.getMonth(),
+        newDate.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
 
-    const dateKey = (d) => new Date(d).toISOString().split("T")[0];
+      const end = new Date(
+        newDate.getFullYear(),
+        newDate.getMonth(),
+        newDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
 
-    while (
-      newDate.getDay() === 0 ||
-      newDate.getDay() === 6 ||
-      existing.some((x) => dateKey(x.date) === dateKey(newDate))
-    ) {
+      const alreadyAssigned = await WFH.countDocuments({
+        _id: { $ne: currentWFH._id },
+        date: { $gte: start, $lte: end },
+      });
+
+      if (!isWeekend(newDate) && alreadyAssigned === 0) {
+        currentWFH.originalDate = currentWFH.originalDate || currentWFH.date;
+        currentWFH.date = newDate;
+        currentWFH.status = "Shifted";
+        currentWFH.type = "Shifted";
+        currentWFH.reason = "Employee shifted allocated WFH day";
+
+        await currentWFH.save();
+
+        return res.json({
+          message: "WFH date shifted successfully.",
+          request: currentWFH,
+        });
+      }
+
       newDate.setDate(newDate.getDate() + 1);
     }
 
-    currentWFH.originalDate = currentWFH.originalDate || currentWFH.date;
-    currentWFH.date = newDate;
-    currentWFH.status = "Shifted";
-    currentWFH.type = "Shifted";
-    currentWFH.reason = "Employee shifted allocated WFH day";
-
-    await currentWFH.save();
-
-    res.json({
-      message: "WFH date shifted successfully",
-      request: currentWFH,
+    res.status(400).json({
+      message: "No available working day found for shifting WFH.",
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+export const generateMyWFHDays = async (req, res) => {
+  res.status(400).json({
+    message: "Use Generate Team WFH Allocation only.",
+  });
 };
 
 export const applyWFH = async (req, res) => {

@@ -15,7 +15,7 @@ import teamRoutes from "./routes/teamRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import teamWFHRoutes from "./routes/teamWFHRoutes.js";
-
+import wfhSwapRoutes from "./routes/wfhSwapRoutes.js";
 dotenv.config();
 
 connectDB();
@@ -47,6 +47,7 @@ app.use("/api/team", teamRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/team-wfh", teamWFHRoutes);
+app.use("/api/wfh-swap", wfhSwapRoutes);
 
 const PORT = process.env.PORT || 5000;
 
