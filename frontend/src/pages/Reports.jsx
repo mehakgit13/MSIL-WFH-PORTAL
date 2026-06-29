@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import api from "../services/api";
 
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
 import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 
 function Reports() {
   const [selectedReport, setSelectedReport] = useState(null);
@@ -15,44 +15,31 @@ function Reports() {
   useEffect(() => {
     const loadReports = async () => {
       try {
-        const dashboardRes = await api.get("/dashboard");
+        const [dashboardRes, leaveRes, wfhRes] = await Promise.all([
+          api.get("/dashboard"),
+          api.get("/leaves/my"),
+          api.get("/wfh/my"),
+        ]);
+
         setDashboard(dashboardRes.data);
-
-        const leaveRes = await api.get("/leaves/my");
         setLeaveData(leaveRes.data);
-
-        const wfhRes = await api.get("/wfh/my");
         setWfhData(wfhRes.data);
       } catch (error) {
-        console.log("Reports error:", error.response?.data);
+        console.log("Reports error:", error.response?.data || error.message);
       }
     };
 
     loadReports();
   }, []);
 
-  const attendance = dashboard?.attendance || {};
   const leaves = dashboard?.leaves || {};
-  const wfh = dashboard?.wfh || {};
 
   const reports = [
-    {
-      title: "Attendance Report",
-      period: "Current Records",
-      icon: <FactCheckOutlinedIcon />,
-      text: "Attendance score, present days and total attendance records.",
-      rows: [
-        ["Attendance Score", `${attendance.percentage || 0}%`],
-        ["Present Days", attendance.presentDays || 0],
-        ["Total Records", attendance.totalRecords || 0],
-        ["Minimum Required", "90%"],
-      ],
-    },
     {
       title: "Leave Report",
       period: "Current Year",
       icon: <EventAvailableOutlinedIcon />,
-      text: "Annual leave, sick leave, remaining balance and submitted requests.",
+      text: "Annual leave, sick leave, remaining balance and submitted leave requests.",
       rows: [
         ["Annual Leave Quota", `${leaves.annualQuota || 20} Days`],
         ["Annual Leave Used", `${leaves.annualUsed || 0} Days`],
@@ -60,20 +47,36 @@ function Reports() {
         ["Sick Leave Quota", `${leaves.sickQuota || 8} Days`],
         ["Sick Leave Used", `${leaves.sickUsed || 0} Days`],
         ["Sick Leave Remaining", `${leaves.sickRemaining || 8} Days`],
+        ["Pending Leave Requests", leaves.pending || 0],
         ["Total Leave Requests", leaveData?.leaves?.length || 0],
       ],
     },
     {
       title: "WFH Report",
-      period: "Current Month",
+      period: "Current Year",
       icon: <HomeWorkOutlinedIcon />,
-      text: "Monthly WFH quota, approved WFH, pending requests and balance.",
+      text: "Yearly WFH allocation, used WFH, upcoming WFH and shifted WFH records.",
       rows: [
-        ["Monthly Limit", `${wfhData?.quota || wfh.monthlyQuota || 5} Days`],
-        ["Approved WFH", `${wfhData?.approved || wfh.approved || 0} Days`],
-        ["Pending WFH", wfhData?.pending || wfh.pending || 0],
-        ["Remaining Balance", `${wfhData?.remaining ?? wfh.remaining ?? 5} Days`],
-        ["Total WFH Requests", wfhData?.requests?.length || 0],
+        ["Yearly WFH Quota", `${wfhData?.yearlyQuota || 24} Days`],
+        ["Total Allocated", `${wfhData?.totalAllocated || 0} Days`],
+        ["Used WFH", `${wfhData?.used || 0} Days`],
+        ["Upcoming WFH", `${wfhData?.upcoming || wfhData?.allocated || 0} Days`],
+        ["Shifted WFH", `${wfhData?.shifted || 0} Days`],
+        ["WFH Left", `${wfhData?.left ?? wfhData?.remaining ?? 0} Days`],
+        ["Total WFH Records", wfhData?.requests?.length || 0],
+      ],
+    },
+    {
+      title: "Team WFH Report",
+      period: "Current Month",
+      icon: <GroupsOutlinedIcon />,
+      text: "Team-wise WFH planning and monthly allocation visibility.",
+      rows: [
+        ["Report Type", "Team WFH Allocation"],
+        ["Policy", "2 WFH days per employee per month"],
+        ["Allocation Rule", "No two employees on the same WFH date"],
+        ["Shift Rule", "Only future WFH can be postponed"],
+        ["Swap Rule", "Only future allocated WFH can be swapped"],
       ],
     },
   ];
@@ -92,9 +95,9 @@ function Reports() {
     <DashboardLayout>
       <div className="page-pro">
         <section className="page-hero">
-          <p>Workforce Analytics</p>
-          <h1>Reports & Analytics</h1>
-          <span>Reports are generated from dashboard, leave and WFH API data.</span>
+          <p>Reports</p>
+          <h1>Leave & WFH Reports</h1>
+          <span>Reports are generated from leave and WFH API data.</span>
         </section>
 
         <section className="reports-grid">
@@ -106,9 +109,7 @@ function Reports() {
 
               <p>{report.text}</p>
 
-              <button onClick={() => openReport(report)}>
-                View Report
-              </button>
+              <button onClick={() => openReport(report)}>View Report</button>
             </div>
           ))}
         </section>
@@ -140,10 +141,7 @@ function Reports() {
               </table>
             </div>
 
-            <button
-              className="mt-6 bg-blue-900 text-white px-6 py-3 rounded-xl font-bold"
-              onClick={() => window.print()}
-            >
+            <button className="primary-btn mt-6" onClick={() => window.print()}>
               Print Report
             </button>
           </section>

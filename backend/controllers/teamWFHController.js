@@ -2,6 +2,7 @@ import WFH from "../models/WFH.js";
 import User from "../models/User.js";
 
 const WFH_PER_MONTH = 2;
+const YEARLY_WFH_LIMIT = 24;
 
 function isWeekend(date) {
   return date.getDay() === 0 || date.getDay() === 6;
@@ -9,6 +10,29 @@ function isWeekend(date) {
 
 function shuffle(array) {
   return [...array].sort(() => Math.random() - 0.5);
+}
+
+function getTodayStart() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+async function markAllPastWFHAsUsed() {
+  const today = getTodayStart();
+
+  await WFH.updateMany(
+    {
+      status: { $in: ["Allocated", "Shifted"] },
+      date: { $lt: today },
+    },
+    {
+      $set: {
+        status: "Used",
+        type: "Used",
+      },
+    }
+  );
 }
 
 function getWorkingDaysOfMonth(year, month) {
@@ -29,7 +53,7 @@ function getWorkingDaysOfMonth(year, month) {
 export const generateTeamWFH = async (req, res) => {
   try {
     const year = new Date().getFullYear();
-    const today = new Date();
+    const today = getTodayStart();
 
     const start = new Date(year, 0, 1);
     const end = new Date(year, 11, 31, 23, 59, 59, 999);
@@ -39,8 +63,10 @@ export const generateTeamWFH = async (req, res) => {
     });
 
     if (existing > 0) {
+      await markAllPastWFHAsUsed();
+
       return res.status(200).json({
-        message: "WFH allocation already exists. Existing data was not changed.",
+        message: "WFH allocation already exists. Existing past records updated.",
         totalRecords: existing,
       });
     }
@@ -50,14 +76,15 @@ export const generateTeamWFH = async (req, res) => {
     }).sort({ name: 1 });
 
     if (users.length === 0) {
-      return res.status(400).json({ message: "No employees found." });
+      return res.status(400).json({
+        message: "No employees found.",
+      });
     }
 
     const records = [];
 
     for (let month = 0; month < 12; month++) {
       const workingDays = shuffle(getWorkingDaysOfMonth(year, month));
-
       const required = users.length * WFH_PER_MONTH;
 
       if (required > workingDays.length) {
@@ -93,30 +120,37 @@ export const generateTeamWFH = async (req, res) => {
       message: "Team WFH allocation generated successfully.",
       totalRecords: created.length,
       employees: users.length,
-      perEmployee: 24,
+      perEmployee: YEARLY_WFH_LIMIT,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
-export const getTeamWFHByDate = async (req, res) => {
+export const getTeamWFH = async (req, res) => {
   try {
-    const selected = req.query.date ? new Date(req.query.date) : new Date();
+    await markAllPastWFHAsUsed();
 
-    const start = new Date(selected.getFullYear(), selected.getMonth(), selected.getDate());
-    const end = new Date(selected.getFullYear(), selected.getMonth(), selected.getDate(), 23, 59, 59, 999);
+    const year = new Date().getFullYear();
+
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31, 23, 59, 59, 999);
 
     const records = await WFH.find({
       date: { $gte: start, $lte: end },
-    }).populate("employee", "name employeeId department designation email");
+    })
+      .populate("employee", "name employeeId department designation email")
+      .sort({ date: 1 });
 
     res.json({
       count: records.length,
-      members: records.map((item) => ({
+      records: records.map((item) => ({
         id: item._id,
         date: item.date,
         status: item.status,
+        type: item.type,
         name: item.employee?.name,
         employeeId: item.employee?.employeeId,
         department: item.employee?.department,
@@ -125,12 +159,65 @@ export const getTeamWFHByDate = async (req, res) => {
       })),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const getTeamWFHByDate = async (req, res) => {
+  try {
+    await markAllPastWFHAsUsed();
+
+    const selected = req.query.date ? new Date(req.query.date) : new Date();
+
+    const start = new Date(
+      selected.getFullYear(),
+      selected.getMonth(),
+      selected.getDate()
+    );
+
+    const end = new Date(
+      selected.getFullYear(),
+      selected.getMonth(),
+      selected.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const records = await WFH.find({
+      date: { $gte: start, $lte: end },
+    })
+      .populate("employee", "name employeeId department designation email")
+      .sort({ date: 1 });
+
+    res.json({
+      count: records.length,
+      members: records.map((item) => ({
+        id: item._id,
+        date: item.date,
+        status: item.status,
+        type: item.type,
+        name: item.employee?.name,
+        employeeId: item.employee?.employeeId,
+        department: item.employee?.department,
+        designation: item.employee?.designation,
+        email: item.employee?.email,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
 export const getTeamWFHByMonth = async (req, res) => {
   try {
+    await markAllPastWFHAsUsed();
+
     const year = Number(req.query.year) || new Date().getFullYear();
     const month = Number(req.query.month) || new Date().getMonth() + 1;
 
@@ -151,13 +238,17 @@ export const getTeamWFHByMonth = async (req, res) => {
         id: item._id,
         date: item.date,
         status: item.status,
+        type: item.type,
         name: item.employee?.name,
         employeeId: item.employee?.employeeId,
         department: item.employee?.department,
         designation: item.employee?.designation,
+        email: item.employee?.email,
       })),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };

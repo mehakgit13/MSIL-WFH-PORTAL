@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 
 const swapSchema = new mongoose.Schema(
   {
-    fromEmployee: {
+    requestedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
-    toEmployee: {
+    requestedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -26,18 +26,34 @@ const swapSchema = new mongoose.Schema(
       required: true,
     },
 
-    reason: String,
+    reason: {
+      type: String,
+      default: "Employee requested WFH swap",
+    },
 
     status: {
       type: String,
-      enum: ["Pending", "Accepted", "Rejected"],
-      default: "Pending",
+      enum: ["Pending", "Pending Employee", "Pending Manager", "Approved", "Rejected"],
+      default: "Pending Employee",
+    },
+
+    employeeAcceptedAt: {
+      type: Date,
+      default: null,
+    },
+
+    managerApprovedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    managerActionAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
 );
 
-export default mongoose.model(
-  "WFHSwapRequest",
-  swapSchema
-);
+export default mongoose.model("WFHSwapRequest", swapSchema);

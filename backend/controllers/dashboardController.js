@@ -1,30 +1,19 @@
 import Leave from "../models/Leave.js";
 import WFH from "../models/WFH.js";
 import Holiday from "../models/Holiday.js";
-import Attendance from "../models/Attendance.js";
 import Notification from "../models/Notification.js";
 
 const ANNUAL_LEAVE_QUOTA = 20;
 const SICK_LEAVE_QUOTA = 8;
-const WFH_MONTHLY_QUOTA = 5;
+const YEARLY_WFH_QUOTA = 24;
 
 export const getDashboard = async (req, res) => {
   try {
     const employeeId = req.user._id;
+    const year = new Date().getFullYear();
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const endOfMonth = new Date(
-      startOfMonth.getFullYear(),
-      startOfMonth.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
-    );
+    const startOfYear = new Date(year, 0, 1);
+    const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
 
     const annualLeavesUsed = await Leave.countDocuments({
       employee: employeeId,
@@ -43,33 +32,19 @@ export const getDashboard = async (req, res) => {
       status: "Pending",
     });
 
-    const approvedWFHThisMonth = await WFH.countDocuments({
+    const wfhRecords = await WFH.find({
       employee: employeeId,
-      status: "Approved",
       date: {
-        $gte: startOfMonth,
-        $lte: endOfMonth,
+        $gte: startOfYear,
+        $lte: endOfYear,
       },
     });
 
-    const pendingWFH = await WFH.countDocuments({
-      employee: employeeId,
-      status: "Pending",
-    });
-
-    const presentDays = await Attendance.countDocuments({
-      employee: employeeId,
-      status: "Present",
-    });
-
-    const totalAttendanceRecords = await Attendance.countDocuments({
-      employee: employeeId,
-    });
-
-    const attendancePercentage =
-      totalAttendanceRecords === 0
-        ? 0
-        : Math.round((presentDays / totalAttendanceRecords) * 100);
+    const usedWFH = wfhRecords.filter((x) => x.status === "Used").length;
+    const upcomingWFH = wfhRecords.filter(
+      (x) => x.status === "Allocated" || x.status === "Shifted"
+    ).length;
+    const shiftedWFH = wfhRecords.filter((x) => x.status === "Shifted").length;
 
     const upcomingHolidays = await Holiday.countDocuments({
       date: { $gte: new Date() },
@@ -92,19 +67,10 @@ export const getDashboard = async (req, res) => {
         location: req.user.location,
       },
 
-      attendance: {
-        percentage: attendancePercentage,
-        presentDays,
-        totalRecords: totalAttendanceRecords,
-      },
-
       leaves: {
         annualQuota: ANNUAL_LEAVE_QUOTA,
         annualUsed: annualLeavesUsed,
-        annualRemaining: Math.max(
-          ANNUAL_LEAVE_QUOTA - annualLeavesUsed,
-          0
-        ),
+        annualRemaining: Math.max(ANNUAL_LEAVE_QUOTA - annualLeavesUsed, 0),
 
         sickQuota: SICK_LEAVE_QUOTA,
         sickUsed: sickLeavesUsed,
@@ -114,10 +80,13 @@ export const getDashboard = async (req, res) => {
       },
 
       wfh: {
-        monthlyQuota: WFH_MONTHLY_QUOTA,
-        approved: approvedWFHThisMonth,
-        pending: pendingWFH,
-        remaining: Math.max(WFH_MONTHLY_QUOTA - approvedWFHThisMonth, 0),
+        yearlyQuota: YEARLY_WFH_QUOTA,
+        totalAllocated: wfhRecords.length,
+        used: usedWFH,
+        upcoming: upcomingWFH,
+        shifted: shiftedWFH,
+        remaining: upcomingWFH,
+        left: upcomingWFH,
       },
 
       holidays: {
@@ -131,9 +100,7 @@ export const getDashboard = async (req, res) => {
       policy: {
         annualLeaveQuota: ANNUAL_LEAVE_QUOTA,
         sickLeaveQuota: SICK_LEAVE_QUOTA,
-        wfhMonthlyQuota: WFH_MONTHLY_QUOTA,
-        workingHoursPerDay: 9,
-        minimumAttendance: 90,
+        yearlyWFHQuota: YEARLY_WFH_QUOTA,
       },
     });
   } catch (error) {

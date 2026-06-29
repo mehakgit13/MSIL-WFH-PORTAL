@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+
 import dotenv from "dotenv";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import connectDB from "./config/db.js";
@@ -12,7 +13,6 @@ import activityRoutes from "./routes/activityRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import teamRoutes from "./routes/teamRoutes.js";
-import attendanceRoutes from "./routes/attendanceRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import teamWFHRoutes from "./routes/teamWFHRoutes.js";
 import wfhSwapRoutes from "./routes/wfhSwapRoutes.js";
@@ -24,10 +24,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -44,7 +45,6 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/notices", noticeRoutes);
  app.use("/api/notifications", notificationRoutes);
 app.use("/api/team", teamRoutes);
-app.use("/api/attendance", attendanceRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/team-wfh", teamWFHRoutes);
 app.use("/api/wfh-swap", wfhSwapRoutes);

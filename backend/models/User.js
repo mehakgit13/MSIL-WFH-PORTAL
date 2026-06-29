@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      trim: true,
     },
 
     name: {
@@ -29,27 +30,22 @@ const userSchema = new mongoose.Schema(
 
     department: {
       type: String,
-      default: "Information Technology",
+      default: "",
     },
 
     designation: {
       type: String,
-      default: "Employee",
+      default: "",
     },
 
     manager: {
       type: String,
-      default: "Reporting Manager",
+      default: "",
     },
 
     location: {
       type: String,
-      default: "Gurgaon Plant",
-    },
-
-    joiningDate: {
-      type: Date,
-      default: Date.now,
+      default: "",
     },
 
     role: {
@@ -57,8 +53,20 @@ const userSchema = new mongoose.Schema(
       enum: ["employee", "manager", "admin"],
       default: "employee",
     },
+
+    profileImage: {
+      type: String,
+      default: "",
+    },
+
+    active: {
+      type: Boolean,
+      default: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("User", userSchema);

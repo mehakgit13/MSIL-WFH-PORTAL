@@ -29,7 +29,7 @@ function Header() {
 
         <div>
           <h1>Maruti Suzuki India Limited</h1>
-          <p>Digital Workplace | Attendance | Leave | WFH | Reports</p>
+          <p>Digital Workplace | Leave | WFH | Reports</p>
         </div>
       </div>
 

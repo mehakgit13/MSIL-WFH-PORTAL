@@ -1,13 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import api from "../services/api";
 
 function WFH() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isManager = user.role === "manager" || user.role === "admin";
+
   const [wfh, setWfh] = useState(null);
   const [teamMonth, setTeamMonth] = useState([]);
+  const [swapData, setSwapData] = useState({
+    sent: [],
+    received: [],
+    manager: [],
+  });
+
   const [loading, setLoading] = useState(true);
-  const [showTeamWFH, setShowTeamWFH] = useState(false);
+  const [activeTab, setActiveTab] = useState("my");
+
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [targetWFH, setTargetWFH] = useState(null);
+  const [selectedMyWFH, setSelectedMyWFH] = useState("");
+  const [swapReason, setSwapReason] = useState("");
 
   const loadWFH = async () => {
     try {
@@ -21,100 +34,116 @@ function WFH() {
   };
 
   const loadTeamMonth = async () => {
-    const now = new Date();
-
-    const res = await api.get(
-      `/team-wfh/by-month?month=${now.getMonth() + 1}&year=${now.getFullYear()}`
-    );
-
-    setTeamMonth(res.data.records || []);
-  };
-
-  useEffect(() => {
-    loadWFH();
-  }, []);
-
-  const handleGenerateTeamWFH = async () => {
     try {
-      const res = await api.post("/team-wfh/generate-team");
-      await loadWFH();
-      await loadTeamMonth();
-      setShowTeamWFH(true);
+      const now = new Date();
 
-      alert(res.data.message || "Team WFH loaded successfully.");
+      const res = await api.get(
+        `/team-wfh/month?month=${now.getMonth() + 1}&year=${now.getFullYear()}`
+      );
+
+      setTeamMonth(res.data.records || []);
     } catch (error) {
-      alert(error.response?.data?.message || "Unable to generate team WFH.");
+      console.log("Team WFH error:", error.response?.data || error.message);
     }
   };
 
-  const handleViewTeamWFH = async () => {
+ const loadSwapRequests = async () => {
+  try {
+    const res = await api.get("/wfh-swap/my");
+
+    let manager = [];
+
     try {
-      await loadTeamMonth();
-      setShowTeamWFH(true);
+      const managerRes = await api.get("/wfh-swap/manager");
+      manager = managerRes.data.requests || [];
+    } catch (managerError) {
+      manager = [];
+    }
+
+    setSwapData({
+      sent: res.data.sent || [],
+      received: res.data.received || [],
+      manager,
+    });
+  } catch (error) {
+    console.log("Swap request error:", error.response?.data || error.message);
+  }
+};
+
+  const openTeamTab = async () => {
+    try {
+      await api.post("/team-wfh/generate");
     } catch (error) {
-      alert(error.response?.data?.message || "Unable to load team WFH.");
+      console.log("Generate team WFH:", error.response?.data || error.message);
+    } finally {
+      await loadTeamMonth();
+      setActiveTab("team");
     }
   };
 
-  const shiftWFH = async (id, currentDate) => {
-    const selected = prompt(
-      `Current WFH date: ${formatDate(currentDate)}\n\nEnter new WFH date in YYYY-MM-DD format.\nYou can prepone or postpone, but the date must be a free working day.`
-    );
-
-    if (!selected) return;
-
-    const selectedDate = new Date(selected);
-    const isInvalid = Number.isNaN(selectedDate.getTime());
-
-    if (isInvalid) {
-      alert("Invalid date format. Please enter date as YYYY-MM-DD.");
-      return;
-    }
-
+  const postponeWFH = async (id) => {
     try {
-      await api.put(`/wfh/shift/${id}`, {
-        newDate: selected,
-      });
-
-      alert("WFH date shifted successfully.");
+      await api.put(`/wfh/shift/${id}`, {});
+      alert("WFH postponed to next available working day.");
 
       await loadWFH();
-      await loadTeamMonth();
-
       window.dispatchEvent(new Event("calendar-refresh"));
     } catch (error) {
-      alert(error.response?.data?.message || "Unable to shift WFH date.");
+      alert(error.response?.data?.message || "Unable to postpone WFH date.");
     }
   };
 
-  const sendSwapRequest = async (targetWFHId) => {
-    const myFutureWFH = (wfh?.requests || []).find(
-      (item) => item.status === "Allocated" || item.status === "Shifted"
-    );
+  const openSwapModal = (item) => {
+    setTargetWFH(item);
+    setSelectedMyWFH("");
+    setSwapReason("");
+    setShowSwapModal(true);
+  };
 
-    if (!myFutureWFH) {
-      alert("You do not have any future WFH date available for swap.");
+  const sendSwapRequest = async () => {
+    if (!selectedMyWFH || !targetWFH?.id) {
+      alert("Please select your WFH date for swap.");
       return;
     }
-
-    const reason = prompt(
-      `Your WFH date: ${formatDate(myFutureWFH.date)}\n\nEnter reason for WFH swap request:`
-    );
-
-    if (!reason) return;
 
     try {
       await api.post("/wfh-swap/request", {
-        fromWFHId: myFutureWFH._id,
-        toWFHId: targetWFHId,
-        reason,
+        fromWFHId: selectedMyWFH,
+        toWFHId: targetWFH.id,
+        reason: swapReason || "Employee requested WFH swap",
       });
 
       alert("WFH swap request sent successfully.");
+      setShowSwapModal(false);
+      await loadSwapRequests();
     } catch (error) {
       alert(error.response?.data?.message || "Unable to send swap request.");
     }
   };
+
+  const respondSwap = async (id, status, managerAction = false) => {
+    try {
+      const url = managerAction
+        ? `/wfh-swap/${id}/manager-respond`
+        : `/wfh-swap/${id}/respond`;
+
+      await api.put(url, { status });
+
+      alert(`Swap request ${status.toLowerCase()} successfully.`);
+
+      await loadWFH();
+      await loadTeamMonth();
+      await loadSwapRequests();
+      window.dispatchEvent(new Event("calendar-refresh"));
+    } catch (error) {
+      alert(error.response?.data?.message || "Unable to update swap request.");
+    }
+  };
+
+  useEffect(() => {
+    loadWFH();
+    loadSwapRequests();
+  }, []);
 
   if (loading) {
     return (
@@ -124,51 +153,46 @@ function WFH() {
     );
   }
 
-  const yearlyQuota = wfh?.yearlyQuota || 24;
-  const totalAllocated = wfh?.totalAllocated || 0;
-  const used = wfh?.used || 0;
-  const upcoming = wfh?.upcoming || wfh?.allocated || 0;
-  const shifted = wfh?.shifted || 0;
-  const left = wfh?.left ?? upcoming + shifted;
   const records = wfh?.requests || [];
+  const yearlyQuota = wfh?.yearlyQuota || 24;
+
+  const used = records.filter((item) => item.status === "Used").length;
+  const shifted = records.filter((item) => item.status === "Shifted").length;
+
+  const futureRecords = records.filter(
+    (item) => item.status === "Allocated" || item.status === "Shifted"
+  );
+
+  const upcoming = futureRecords.length;
+  const totalAllocated = records.length;
+  const left = upcoming;
+
+  const visibleTeamMonth = teamMonth.filter(
+    (item) => item.employeeId !== user.employeeId
+  );
 
   return (
     <DashboardLayout>
       <div className="page-pro">
         <section className="page-hero">
           <p>Work From Home</p>
-          <h1>{showTeamWFH ? "Team WFH Allocation" : "My WFH Allocation"}</h1>
+
+          <h1>
+            {activeTab === "my" ? "My WFH Allocation" : "Team WFH Allocation"}
+          </h1>
+
           <span>
-            {showTeamWFH
-              ? "Current month WFH allocation of team members."
+            {isManager
+              ? "Manager view enabled: review employee WFH swap approvals."
               : "2 random WFH days every month, 24 WFH days per year."}
           </span>
         </section>
 
         <section className="metric-grid four">
-          <MetricCard
-            title="Yearly Limit"
-            value={`${yearlyQuota} Days`}
-            sub="2 days per month"
-          />
-
-          <MetricCard
-            title="Total Allocated"
-            value={`${totalAllocated} Days`}
-            sub="My allocation"
-          />
-
-          <MetricCard
-            title="Used WFH"
-            value={`${used} Days`}
-            sub="Past WFH days"
-          />
-
-          <MetricCard
-            title="WFH Left"
-            value={`${left} Days`}
-            sub="Upcoming + shifted"
-          />
+          <MetricCard title="Yearly Limit" value={`${yearlyQuota} Days`} sub="2 days per month" />
+          <MetricCard title="Total Allocated" value={`${totalAllocated} Days`} sub="My yearly allocation" />
+          <MetricCard title="Used WFH" value={`${used} Days`} sub="Past WFH days" />
+          <MetricCard title="WFH Left" value={`${left} Days`} sub="Upcoming + shifted" />
         </section>
 
         <section className="pro-grid two">
@@ -193,12 +217,6 @@ function WFH() {
                   }}
                 />
               </div>
-
-              <div className="wfh-mini-stats">
-                <p>Used: {used}</p>
-                <p>Upcoming: {upcoming}</p>
-                <p>Shifted: {shifted}</p>
-              </div>
             </div>
           </div>
 
@@ -211,176 +229,324 @@ function WFH() {
             <div className="policy-list-modern">
               <p>Every employee gets 24 WFH days in one calendar year.</p>
               <p>2 random working days are allocated every month.</p>
-              <p>No two employees should have WFH on the same date.</p>
-              <p>
-                Future WFH dates can be preponed, postponed, or swapped with
-                another employee.
-              </p>
+              <p>Future WFH dates can be postponed or swapped.</p>
+              <p>Employee swap requests require receiver and manager approval.</p>
             </div>
           </div>
         </section>
 
-        <section className="pro-card wfh-actions-card">
-          <div className="pro-card-head">
-            <h2>Actions</h2>
-            <span>WFH Workflow</span>
-          </div>
-
-          <div className="wfh-action-grid three-actions">
-            <button className="wfh-action-btn" onClick={handleGenerateTeamWFH}>
-              Generate / Load Team WFH
+        <section className="pro-card mt-6">
+          <div className="wfh-tabs">
+            <button
+              className={activeTab === "my" ? "wfh-tab active" : "wfh-tab"}
+              onClick={() => setActiveTab("my")}
+            >
+              My WFH
             </button>
 
-            <button className="wfh-action-btn" onClick={handleViewTeamWFH}>
-              View Team WFH This Month
+            <button
+              className={activeTab === "team" ? "wfh-tab active" : "wfh-tab"}
+              onClick={openTeamTab}
+            >
+              Team WFH
             </button>
-
-            {showTeamWFH ? (
-              <button
-                className="wfh-action-btn"
-                onClick={() => setShowTeamWFH(false)}
-              >
-                Back to My WFH Days
-              </button>
-            ) : (
-              <Link to="/wfh/swap-requests" className="wfh-action-btn">
-                WFH Swap Requests
-              </Link>
-            )}
           </div>
-        </section>
 
-        {!showTeamWFH && (
-          <section className="pro-card mt-6">
-            <div className="pro-card-head">
-              <h2>My WFH Days</h2>
-              <span>{records.length} records</span>
-            </div>
+          {activeTab === "my" ? (
+            <>
+              <div className="pro-card-head mt-4">
+                <h2>My WFH Days</h2>
+                <span>{records.length} records</span>
+              </div>
 
-            <div className="table-pro">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Original Date</th>
-                    <th>Status</th>
-                    <th>Reason</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+              <WFHTable records={records} onPostpone={postponeWFH} />
+            </>
+          ) : (
+            <>
+              <div className="pro-card-head mt-4">
+                <h2>Team WFH This Month</h2>
+                <span>{visibleTeamMonth.length} records</span>
+              </div>
 
-                <tbody>
-                  {records.length === 0 ? (
+              <div className="table-pro">
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan="5">No WFH records found.</td>
+                      <th>Date</th>
+                      <th>Employee</th>
+                      <th>Employee ID</th>
+                      <th>Department</th>
+                      <th>Status</th>
+                      <th>Swap</th>
                     </tr>
-                  ) : (
-                    records.map((item) => (
-                      <tr key={item._id}>
-                        <td>{formatDate(item.date)}</td>
+                  </thead>
 
-                        <td>
-                          {item.originalDate
-                            ? formatDate(item.originalDate)
-                            : "-"}
-                        </td>
-
-                        <td>
-                          <span
-                            className={`status-pill ${item.status?.toLowerCase()}`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-
-                        <td>{item.reason}</td>
-
-                        <td>
-                          {item.status === "Allocated" ||
-                          item.status === "Shifted" ? (
-                            <button
-                              className="small-action-btn"
-                              onClick={() => shiftWFH(item._id, item.date)}
-                            >
-                              Shift / Prepone
-                            </button>
-                          ) : (
-                            <span className="text-gray-500">Not allowed</span>
-                          )}
+                  <tbody>
+                    {visibleTeamMonth.length === 0 ? (
+                      <tr>
+                        <td colSpan="6">
+                          No team WFH records found for this month.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      visibleTeamMonth.map((item) => (
+                        <tr key={item.id}>
+                          <td>{formatDate(item.date)}</td>
+                          <td>{item.name || "-"}</td>
+                          <td>{item.employeeId || "-"}</td>
+                          <td>{item.department || "-"}</td>
+
+                          <td>
+                            <span className={`status-pill ${statusClass(item.status)}`}>
+                              {item.status}
+                            </span>
+                          </td>
+
+                          <td>
+                            {item.status === "Allocated" || item.status === "Shifted" ? (
+                              <button
+                                className="small-action-btn"
+                                onClick={() => openSwapModal(item)}
+                              >
+                                Request Swap
+                              </button>
+                            ) : (
+                              <span className="status-pill used">Not allowed</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="pro-card mt-6">
+          <div className="pro-card-head">
+            <h2>WFH Swap Requests</h2>
+            <span>
+              {swapData.received.length} received • {swapData.sent.length} sent
+            </span>
+          </div>
+
+          <div className="pro-grid two">
+            <SwapList
+              title="Requests Received"
+              empty="No received swap requests."
+              items={swapData.received}
+              mode="received"
+              onRespond={(id, status) => respondSwap(id, status, false)}
+            />
+
+            <SwapList
+              title="Requests Sent"
+              empty="No sent swap requests."
+              items={swapData.sent}
+              mode="sent"
+            />
+          </div>
+        </section>
+
+        {(isManager || swapData.manager.length > 0) && (
+          <section className="pro-card mt-6">
+            <div className="pro-card-head">
+              <h2>Manager Approval Requests</h2>
+              <span>{swapData.manager.length} team requests</span>
             </div>
+
+            <SwapList
+              title="Team Swap Approvals"
+              empty="No pending team approval requests."
+              items={swapData.manager}
+              mode="manager"
+              onRespond={(id, status) => respondSwap(id, status, true)}
+            />
           </section>
         )}
 
-        {showTeamWFH && (
-          <section className="pro-card mt-6">
-            <div className="pro-card-head">
-              <h2>Team WFH This Month</h2>
-              <span>{teamMonth.length} records</span>
-            </div>
+        {showSwapModal && (
+          <div className="swap-modal-backdrop">
+            <div className="swap-modal">
+              <h2>Request WFH Swap</h2>
 
-            <div className="table-pro">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Employee</th>
-                    <th>Employee ID</th>
-                    <th>Department</th>
-                    <th>Status</th>
-                    <th>Swap</th>
-                  </tr>
-                </thead>
+              <p className="swap-modal-sub">
+                Swap with <b>{targetWFH?.name}</b> for{" "}
+                <b>{formatDate(targetWFH?.date)}</b>
+              </p>
 
-                <tbody>
-                  {teamMonth.length === 0 ? (
-                    <tr>
-                      <td colSpan="6">
-                        No team WFH records found for this month.
-                      </td>
-                    </tr>
-                  ) : (
-                    teamMonth.map((item) => (
-                      <tr key={item.id}>
-                        <td>{formatDate(item.date)}</td>
-                        <td>{item.name || "-"}</td>
-                        <td>{item.employeeId || "-"}</td>
-                        <td>{item.department || "-"}</td>
-                        <td>
-                          <span
-                            className={`status-pill ${item.status?.toLowerCase()}`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                        <td>
-                          {item.status === "Allocated" ||
-                          item.status === "Shifted" ? (
-                            <button
-                              className="small-action-btn"
-                              onClick={() => sendSwapRequest(item.id)}
-                            >
-                              Request Swap
-                            </button>
-                          ) : (
-                            <span className="text-gray-500">Not allowed</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <label>Select your WFH date</label>
+
+              <select
+                value={selectedMyWFH}
+                onChange={(e) => setSelectedMyWFH(e.target.value)}
+              >
+                <option value="">Choose your WFH date</option>
+
+                {futureRecords.map((item) => (
+                  <option key={item._id} value={item._id}>
+                    {formatDate(item.date)} - {item.status}
+                  </option>
+                ))}
+              </select>
+
+              <label>Reason</label>
+
+              <textarea
+                value={swapReason}
+                onChange={(e) => setSwapReason(e.target.value)}
+                placeholder="Enter reason for swap"
+              />
+
+              <div className="swap-modal-actions">
+                <button
+                  className="danger-action-btn"
+                  onClick={() => setShowSwapModal(false)}
+                >
+                  Cancel
+                </button>
+
+                <button className="small-action-btn" onClick={sendSwapRequest}>
+                  Send Request
+                </button>
+              </div>
             </div>
-          </section>
+          </div>
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+function WFHTable({ records, onPostpone }) {
+  return (
+    <div className="table-pro">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Original Date</th>
+            <th>Status</th>
+            <th>Reason</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {records.length === 0 ? (
+            <tr>
+              <td colSpan="5">No WFH records found.</td>
+            </tr>
+          ) : (
+            records.map((item) => (
+              <tr key={item._id}>
+                <td>{formatDate(item.date)}</td>
+                <td>{item.originalDate ? formatDate(item.originalDate) : "-"}</td>
+
+                <td>
+                  <span className={`status-pill ${statusClass(item.status)}`}>
+                    {item.status}
+                  </span>
+                </td>
+
+                <td>{item.reason}</td>
+
+                <td>
+                  {item.status === "Allocated" || item.status === "Shifted" ? (
+                    <button
+                      className="small-action-btn"
+                      onClick={() => onPostpone(item._id)}
+                    >
+                      Postpone WFH
+                    </button>
+                  ) : (
+                    <span className="status-pill used">Not allowed</span>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SwapList({ title, empty, items, mode, onRespond }) {
+  return (
+    <div>
+      <h3 className="swap-section-title">{title}</h3>
+
+      {items.length === 0 ? (
+        <p className="empty-text">{empty}</p>
+      ) : (
+        <div className="swap-request-list">
+          {items.map((item) => {
+            const sentToName =
+              item.requestedTo?.name ||
+              item.toWFH?.employee?.name ||
+              "Employee";
+
+            const receivedFromName =
+              item.requestedBy?.name ||
+              item.fromWFH?.employee?.name ||
+              "Employee";
+
+            return (
+              <div className="swap-request-card" key={item._id}>
+                <div>
+                  <h3>
+                    {mode === "sent"
+                      ? `To: ${sentToName}`
+                      : mode === "manager"
+                      ? `${receivedFromName} → ${sentToName}`
+                      : receivedFromName}
+                  </h3>
+
+                  <p>
+                    {formatDate(item.fromWFH?.date)} ⇄{" "}
+                    {formatDate(item.toWFH?.date)}
+                  </p>
+
+                  <span>{normalizeStatus(item.status)}</span>
+                </div>
+
+                {(mode === "received" &&
+                  ["Pending Employee", "Pending"].includes(item.status)) ||
+                (mode === "manager" && item.status === "Pending Manager") ? (
+                  <div className="swap-actions">
+                    <button
+                      className="small-action-btn"
+                      onClick={() =>
+                        onRespond(
+                          item._id,
+                          mode === "manager" ? "Approved" : "Accepted"
+                        )
+                      }
+                    >
+                      {mode === "manager" ? "Approve" : "Accept"}
+                    </button>
+
+                    <button
+                      className="danger-action-btn"
+                      onClick={() => onRespond(item._id, "Rejected")}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`status-pill ${statusClass(item.status)}`}>
+                    {normalizeStatus(item.status)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -395,12 +561,23 @@ function MetricCard({ title, value, sub }) {
 }
 
 function formatDate(date) {
+  if (!date) return "-";
+
   return new Date(date).toLocaleDateString("en-IN", {
     weekday: "short",
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+}
+
+function statusClass(status = "") {
+  return normalizeStatus(status).toLowerCase().replace(/\s+/g, "-");
+}
+
+function normalizeStatus(status = "") {
+  if (status === "Pending") return "Pending Employee";
+  return status || "-";
 }
 
 export default WFH;
