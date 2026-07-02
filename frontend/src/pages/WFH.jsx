@@ -13,6 +13,10 @@ function WFH() {
     received: [],
     manager: [],
   });
+  const [postponeData, setPostponeData] = useState({
+    my: [],
+    manager: [],
+  });
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("my");
@@ -36,39 +40,64 @@ function WFH() {
   const loadTeamMonth = async () => {
     try {
       const now = new Date();
-
       const res = await api.get(
         `/team-wfh/month?month=${now.getMonth() + 1}&year=${now.getFullYear()}`
       );
-
       setTeamMonth(res.data.records || []);
     } catch (error) {
       console.log("Team WFH error:", error.response?.data || error.message);
     }
   };
 
- const loadSwapRequests = async () => {
-  try {
-    const res = await api.get("/wfh-swap/my");
-
-    let manager = [];
-
+  const loadSwapRequests = async () => {
     try {
-      const managerRes = await api.get("/wfh-swap/manager");
-      manager = managerRes.data.requests || [];
-    } catch (managerError) {
-      manager = [];
-    }
+      const res = await api.get("/wfh-swap/my");
 
-    setSwapData({
-      sent: res.data.sent || [],
-      received: res.data.received || [],
-      manager,
-    });
-  } catch (error) {
-    console.log("Swap request error:", error.response?.data || error.message);
-  }
-};
+      let manager = [];
+      try {
+        const managerRes = await api.get("/wfh-swap/manager");
+        manager = managerRes.data.requests || [];
+      } catch {
+        manager = [];
+      }
+
+      setSwapData({
+        sent: res.data.sent || [],
+        received: res.data.received || [],
+        manager,
+      });
+    } catch (error) {
+      console.log("Swap request error:", error.response?.data || error.message);
+    }
+  };
+
+  const loadPostponeRequests = async () => {
+    try {
+      const myRes = await api.get("/wfh-postpone/my");
+
+      let manager = [];
+      try {
+        const managerRes = await api.get("/wfh-postpone/manager");
+        manager = managerRes.data.requests || [];
+      } catch {
+        manager = [];
+      }
+
+      setPostponeData({
+        my: myRes.data.requests || [],
+        manager,
+      });
+    } catch (error) {
+      console.log("Postpone request error:", error.response?.data || error.message);
+    }
+  };
+
+  const refreshAll = async () => {
+    await loadWFH();
+    await loadSwapRequests();
+    await loadPostponeRequests();
+    window.dispatchEvent(new Event("calendar-refresh"));
+  };
 
   const openTeamTab = async () => {
     try {
@@ -83,13 +112,24 @@ function WFH() {
 
   const postponeWFH = async (id) => {
     try {
-      await api.put(`/wfh/shift/${id}`, {});
-      alert("WFH postponed to next available working day.");
+      await api.post(`/wfh-postpone/${id}/request`, {
+        reason: "Employee requested WFH postpone",
+      });
 
-      await loadWFH();
-      window.dispatchEvent(new Event("calendar-refresh"));
+      alert("WFH postpone request sent to manager for approval.");
+      await refreshAll();
     } catch (error) {
-      alert(error.response?.data?.message || "Unable to postpone WFH date.");
+      alert(error.response?.data?.message || "Unable to send postpone request.");
+    }
+  };
+
+  const respondPostpone = async (id, status) => {
+    try {
+      await api.put(`/wfh-postpone/${id}/manager-respond`, { status });
+      alert(`Postpone request ${status.toLowerCase()} successfully.`);
+      await refreshAll();
+    } catch (error) {
+      alert(error.response?.data?.message || "Unable to update postpone request.");
     }
   };
 
@@ -115,7 +155,7 @@ function WFH() {
 
       alert("WFH swap request sent successfully.");
       setShowSwapModal(false);
-      await loadSwapRequests();
+      await refreshAll();
     } catch (error) {
       alert(error.response?.data?.message || "Unable to send swap request.");
     }
@@ -128,21 +168,15 @@ function WFH() {
         : `/wfh-swap/${id}/respond`;
 
       await api.put(url, { status });
-
       alert(`Swap request ${status.toLowerCase()} successfully.`);
-
-      await loadWFH();
-      await loadTeamMonth();
-      await loadSwapRequests();
-      window.dispatchEvent(new Event("calendar-refresh"));
+      await refreshAll();
     } catch (error) {
       alert(error.response?.data?.message || "Unable to update swap request.");
     }
   };
 
   useEffect(() => {
-    loadWFH();
-    loadSwapRequests();
+    refreshAll();
   }, []);
 
   if (loading) {
@@ -176,14 +210,10 @@ function WFH() {
       <div className="page-pro">
         <section className="page-hero">
           <p>Work From Home</p>
-
-          <h1>
-            {activeTab === "my" ? "My WFH Allocation" : "Team WFH Allocation"}
-          </h1>
-
+          <h1>{activeTab === "my" ? "My WFH Allocation" : "Team WFH Allocation"}</h1>
           <span>
             {isManager
-              ? "Manager view enabled: review employee WFH swap approvals."
+              ? "Manager view enabled: review employee WFH approvals."
               : "2 random WFH days every month, 24 WFH days per year."}
           </span>
         </section>
@@ -204,7 +234,6 @@ function WFH() {
 
             <div className="wfh-visual">
               <h3>{left} Days Left</h3>
-
               <p>
                 {used} used • {upcoming} upcoming • {shifted} shifted •{" "}
                 {yearlyQuota} yearly quota
@@ -230,7 +259,7 @@ function WFH() {
               <p>Every employee gets 24 WFH days in one calendar year.</p>
               <p>2 random working days are allocated every month.</p>
               <p>Future WFH dates can be postponed or swapped.</p>
-              <p>Employee swap requests require receiver and manager approval.</p>
+              <p>Postpone and swap requests require manager approval.</p>
             </div>
           </div>
         </section>
@@ -284,9 +313,7 @@ function WFH() {
                   <tbody>
                     {visibleTeamMonth.length === 0 ? (
                       <tr>
-                        <td colSpan="6">
-                          No team WFH records found for this month.
-                        </td>
+                        <td colSpan="6">No team WFH records found for this month.</td>
                       </tr>
                     ) : (
                       visibleTeamMonth.map((item) => (
@@ -295,13 +322,11 @@ function WFH() {
                           <td>{item.name || "-"}</td>
                           <td>{item.employeeId || "-"}</td>
                           <td>{item.department || "-"}</td>
-
                           <td>
                             <span className={`status-pill ${statusClass(item.status)}`}>
                               {item.status}
                             </span>
                           </td>
-
                           <td>
                             {item.status === "Allocated" || item.status === "Shifted" ? (
                               <button
@@ -353,17 +378,90 @@ function WFH() {
         {(isManager || swapData.manager.length > 0) && (
           <section className="pro-card mt-6">
             <div className="pro-card-head">
-              <h2>Manager Approval Requests</h2>
-              <span>{swapData.manager.length} team requests</span>
+              <h2>Manager Swap Approvals</h2>
+              <span>{swapData.manager.length} pending</span>
             </div>
 
             <SwapList
               title="Team Swap Approvals"
-              empty="No pending team approval requests."
+              empty="No pending team swap approvals."
               items={swapData.manager}
               mode="manager"
               onRespond={(id, status) => respondSwap(id, status, true)}
             />
+          </section>
+        )}
+
+        <section className="pro-card mt-6">
+          <div className="pro-card-head">
+            <h2>WFH Postpone Requests</h2>
+            <span>{postponeData.my.length} requests</span>
+          </div>
+
+          {postponeData.my.length === 0 ? (
+            <p>No postpone requests found.</p>
+          ) : (
+            <div className="swap-request-list">
+              {postponeData.my.map((item) => (
+                <div className="swap-request-card" key={item._id}>
+                  <div>
+                    <h3>
+                      {formatDate(item.currentDate)} → {formatDate(item.requestedDate)}
+                    </h3>
+                    <p>{item.reason}</p>
+                    <span>{item.status}</span>
+                  </div>
+
+                  <span className={`status-pill ${statusClass(item.status)}`}>
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {(isManager || postponeData.manager.length > 0) && (
+          <section className="pro-card mt-6">
+            <div className="pro-card-head">
+              <h2>Manager Postpone Approvals</h2>
+              <span>{postponeData.manager.length} pending</span>
+            </div>
+
+            {postponeData.manager.length === 0 ? (
+              <p>No pending postpone approvals.</p>
+            ) : (
+              <div className="swap-request-list">
+                {postponeData.manager.map((item) => (
+                  <div className="swap-request-card" key={item._id}>
+                    <div>
+                      <h3>{item.employee?.name || "Employee"}</h3>
+                      <p>
+                        {formatDate(item.currentDate)} →{" "}
+                        {formatDate(item.requestedDate)}
+                      </p>
+                      <span>{item.reason}</span>
+                    </div>
+
+                    <div className="swap-actions">
+                      <button
+                        className="small-action-btn"
+                        onClick={() => respondPostpone(item._id, "Approved")}
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        className="danger-action-btn"
+                        onClick={() => respondPostpone(item._id, "Rejected")}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -384,7 +482,6 @@ function WFH() {
                 onChange={(e) => setSelectedMyWFH(e.target.value)}
               >
                 <option value="">Choose your WFH date</option>
-
                 {futureRecords.map((item) => (
                   <option key={item._id} value={item._id}>
                     {formatDate(item.date)} - {item.status}
@@ -444,22 +541,19 @@ function WFHTable({ records, onPostpone }) {
               <tr key={item._id}>
                 <td>{formatDate(item.date)}</td>
                 <td>{item.originalDate ? formatDate(item.originalDate) : "-"}</td>
-
                 <td>
                   <span className={`status-pill ${statusClass(item.status)}`}>
                     {item.status}
                   </span>
                 </td>
-
                 <td>{item.reason}</td>
-
                 <td>
                   {item.status === "Allocated" || item.status === "Shifted" ? (
                     <button
                       className="small-action-btn"
                       onClick={() => onPostpone(item._id)}
                     >
-                      Postpone WFH
+                      Request Postpone
                     </button>
                   ) : (
                     <span className="status-pill used">Not allowed</span>
@@ -485,9 +579,7 @@ function SwapList({ title, empty, items, mode, onRespond }) {
         <div className="swap-request-list">
           {items.map((item) => {
             const sentToName =
-              item.requestedTo?.name ||
-              item.toWFH?.employee?.name ||
-              "Employee";
+              item.requestedTo?.name || item.toWFH?.employee?.name || "Employee";
 
             const receivedFromName =
               item.requestedBy?.name ||

@@ -1,39 +1,30 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
-import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
-import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import PolicyOutlinedIcon from "@mui/icons-material/PolicyOutlined";
-import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-
-function ProfileDropdown({ user }) {
+function ProfileDropdown() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
-  const name = user?.name || "Employee";
-  const designation = user?.designation || "Employee";
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const name = user.name || "Employee";
+  const designation = user.designation || user.role || "Employee";
+
   const initials = name
     .split(" ")
     .map((word) => word[0])
     .join("")
-    .slice(0, 2);
+    .slice(0, 2)
+    .toUpperCase();
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/";
+    localStorage.clear();
+    navigate("/");
   };
 
   return (
     <div className="profile-wrapper">
-      <button
-        onClick={() => setOpen(!open)}
-        className="profile-button"
-      >
+      <button className="profile-button" onClick={() => setOpen(!open)}>
         <div className="profile-avatar">{initials}</div>
 
         <div className="profile-text">
@@ -41,40 +32,24 @@ function ProfileDropdown({ user }) {
           <p>{designation}</p>
         </div>
 
-        <KeyboardArrowDownIcon fontSize="small" />
+        <span>⌄</span>
       </button>
 
       {open && (
         <div className="profile-menu">
-          <MenuLink to="/profile" icon={<PersonOutlineIcon />} text="My Profile" />
-          <MenuLink to="/attendance" icon={<FactCheckOutlinedIcon />} text="Attendance" />
-          <MenuLink to="/leaves" icon={<EventAvailableOutlinedIcon />} text="Leave Summary" />
-          <MenuLink to="/wfh" icon={<HomeWorkOutlinedIcon />} text="WFH Usage" />
-          <MenuLink to="/requests" icon={<AssignmentOutlinedIcon />} text="My Requests" />
+          <Link className="profile-menu-link" to="/profile">My Profile</Link>
+          <Link className="profile-menu-link" to="/wfh">Work From Home</Link>
+          <Link className="profile-menu-link" to="/leave/apply">Apply Leave</Link>
+          <Link className="profile-menu-link" to="/leave/history">Leave History</Link>
 
-          <div className="profile-divider" />
+          <div className="profile-divider"></div>
 
-          <MenuLink to="/about" icon={<InfoOutlinedIcon />} text="About Portal" />
-          <MenuLink to="/rules" icon={<PolicyOutlinedIcon />} text="Policies & Guidelines" />
-
-          <div className="profile-divider" />
-
-          <button onClick={logout} className="profile-logout">
-            <LogoutOutlinedIcon fontSize="small" />
+          <button className="profile-logout" onClick={logout}>
             Logout
           </button>
         </div>
       )}
     </div>
-  );
-}
-
-function MenuLink({ to, icon, text }) {
-  return (
-    <Link to={to} className="profile-menu-link">
-      {icon}
-      <span>{text}</span>
-    </Link>
   );
 }
 

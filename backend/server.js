@@ -16,7 +16,9 @@ import teamRoutes from "./routes/teamRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import teamWFHRoutes from "./routes/teamWFHRoutes.js";
 import wfhSwapRoutes from "./routes/wfhSwapRoutes.js";
+import wfhPostponeRoutes from "./routes/wfhPostponeRoutes.js";
 dotenv.config();
+
 
 connectDB();
 
@@ -28,7 +30,7 @@ app.use(
     credentials: true,
   })
 );
-
+app.use("/api/wfh-postpone", wfhPostponeRoutes);
 app.use(express.json());
 
 app.get("/", (req, res) => {

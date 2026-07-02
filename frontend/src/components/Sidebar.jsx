@@ -19,6 +19,11 @@ function Sidebar() {
       icon: <DashboardOutlinedIcon />,
     },
     {
+      title: "Work From Home",
+      path: "/wfh",
+      icon: <HomeWorkOutlinedIcon />,
+    },
+    {
       title: "Apply Leave",
       path: "/leave/apply",
       icon: <EventAvailableOutlinedIcon />,
@@ -27,11 +32,6 @@ function Sidebar() {
       title: "Leave History",
       path: "/leave/history",
       icon: <EventAvailableOutlinedIcon />,
-    },
-    {
-      title: "Work From Home",
-      path: "/wfh",
-      icon: <HomeWorkOutlinedIcon />,
     },
     {
       title: "Reports",
@@ -55,16 +55,17 @@ function Sidebar() {
     },
   ];
 
+  const initials = (user.name || "Employee")
+    .split(" ")
+    .map((x) => x[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
   return (
     <aside className="sidebar-pro">
-
-      {/* Company Logo */}
       <div className="brand-box">
-        <img
-          src="/maruti-logo.png"
-          alt="Maruti Suzuki"
-          className="brand-logo"
-        />
+        <img src="/maruti-logo.png" alt="Maruti Suzuki" className="brand-logo" />
 
         <div>
           <h1>MARUTI SUZUKI</h1>
@@ -72,34 +73,21 @@ function Sidebar() {
         </div>
       </div>
 
-      {/* Employee Card */}
       <div className="sidebar-user-card">
-        <div className="sidebar-avatar">
-          {(user.name || "Employee")
-            .split(" ")
-            .map((x) => x[0])
-            .join("")
-            .substring(0, 2)}
-        </div>
+        <div className="sidebar-avatar">{initials}</div>
 
         <div>
           <h3>{user.name || "Employee"}</h3>
-          <p>{user.designation || "Employee"}</p>
-
-          <span>
-            ID: {user.employeeId || "MS10001"}
-          </span>
+          <p>{user.designation || user.role || "Employee"}</p>
+          <span>ID: {user.employeeId || "N/A"}</span>
         </div>
       </div>
 
-      {/* Calendar */}
       <div className="sidebar-calendar-wrap">
         <CalendarWidget />
       </div>
 
-      <p className="sidebar-section-title">
-        MAIN MENU
-      </p>
+      <p className="sidebar-section-title">MAIN MENU</p>
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
@@ -107,20 +95,14 @@ function Sidebar() {
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              isActive
-                ? "sidebar-link active"
-                : "sidebar-link"
+              isActive ? "sidebar-link active" : "sidebar-link"
             }
           >
-            <span className="sidebar-icon">
-              {item.icon}
-            </span>
-
+            <span className="sidebar-icon">{item.icon}</span>
             <span>{item.title}</span>
           </NavLink>
         ))}
       </nav>
-
     </aside>
   );
 }

@@ -169,12 +169,25 @@ export const getTeamWFHByDate = async (req, res) => {
   try {
     await markAllPastWFHAsUsed();
 
-    const selected = req.query.date ? new Date(req.query.date) : new Date();
+    const dateString = req.query.date;
+
+    let selected;
+
+    if (dateString) {
+      const [year, month, day] = dateString.split("-").map(Number);
+      selected = new Date(year, month - 1, day);
+    } else {
+      selected = new Date();
+    }
 
     const start = new Date(
       selected.getFullYear(),
       selected.getMonth(),
-      selected.getDate()
+      selected.getDate(),
+      0,
+      0,
+      0,
+      0
     );
 
     const end = new Date(
@@ -208,9 +221,7 @@ export const getTeamWFHByDate = async (req, res) => {
       })),
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 

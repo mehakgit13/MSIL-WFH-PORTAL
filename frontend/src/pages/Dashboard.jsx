@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-
 import DashboardLayout from "../layouts/DashboardLayout";
-import LeavePieChart from "../components/LeavePieChart";
-import api from "../services/api";
 import TeamWFHToday from "../components/TeamWFHToday";
-
+import api from "../services/api";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [wfh, setWfh] = useState(null);
@@ -38,26 +47,26 @@ function Dashboard() {
 
   const employee = dashboard.employee || {};
   const leaves = dashboard.leaves || {};
+  const records = wfh?.requests || [];
 
-  const totalLeaveRemaining =
-    (leaves.annualRemaining || 0) + (leaves.sickRemaining || 0);
-
-  const upcomingWFH = (wfh?.requests || [])
-    .filter((item) => new Date(item.date) >= new Date())
-    .slice(0, 4);
+  const used = records.filter((x) => x.status === "Used").length;
+  const shifted = records.filter((x) => x.status === "Shifted").length;
+  const upcoming = records.filter(
+    (x) => x.status === "Allocated" || x.status === "Shifted"
+  ).length;
 
   return (
     <DashboardLayout>
       <div className="dashboard-pro">
         <section className="hero-pro">
-          <div>
-            <p>Employee Workforce Management Portal</p>
-            <h1>Welcome back, {employee.name || "Employee"}</h1>
-            <span>
-              {employee.employeeId || "N/A"} • {employee.department || "N/A"} •{" "}
-              {employee.location || "N/A"}
-            </span>
-          </div>
+          <p>Employee Workforce Management Portal</p>
+
+          <h1>Welcome back, {employee.name || "Employee"}</h1>
+
+          <span>
+            {employee.employeeId || "N/A"} • {employee.department || "N/A"} •{" "}
+            {employee.location || "N/A"}
+          </span>
 
           <div className="hero-kpis">
             <HeroKPI
@@ -73,96 +82,86 @@ function Dashboard() {
             />
 
             <HeroKPI
-              title="Leave Balance"
-              value={`${totalLeaveRemaining} Days`}
-              sub="Total remaining"
+              title="WFH Used"
+              value={used}
+              sub="Completed days"
             />
 
             <HeroKPI
               title="WFH Balance"
-              value={`${wfh?.left ?? wfh?.remaining ?? 0} / ${
-                wfh?.yearlyQuota || 24
-              }`}
+              value={`${wfh?.remaining ?? upcoming} / ${wfh?.yearlyQuota || 24}`}
               sub="WFH left"
             />
           </div>
         </section>
 
         <section className="pro-grid two">
+          <TeamWFHToday />
+
           <div className="pro-card">
             <div className="pro-card-head">
-              <h2>Leave Distribution</h2>
+              <h2>WFH Summary</h2>
               <span>Current year</span>
             </div>
 
-            <LeavePieChart dashboard={dashboard} />
-          </div>
-
-          <div className="pro-card">
-            <div className="pro-card-head">
-              <h2>Leave & WFH Summary</h2>
-              <span>Live Overview</span>
-            </div>
-
             <div className="summary-progress-list">
-              <ProgressRow
-                title="Annual Leave Used"
-                value={leaves.annualUsed || 0}
-                total={leaves.annualQuota || 20}
-              />
-
-              <ProgressRow
-                title="Sick Leave Used"
-                value={leaves.sickUsed || 0}
-                total={leaves.sickQuota || 8}
-              />
-
-              <ProgressRow
-                title="WFH Used"
-                value={wfh?.used || 0}
-                total={wfh?.yearlyQuota || 24}
-              />
-
-              <ProgressRow
-                title="WFH Left"
-                value={wfh?.left ?? wfh?.remaining ?? 0}
-                total={wfh?.yearlyQuota || 24}
-              />
+              <ProgressRow title="Used WFH" value={used} total={wfh?.yearlyQuota || 24} />
+              <ProgressRow title="Upcoming WFH" value={upcoming} total={wfh?.yearlyQuota || 24} />
+              <ProgressRow title="Shifted WFH" value={shifted} total={wfh?.yearlyQuota || 24} />
             </div>
           </div>
         </section>
+        
+<section className="pro-grid two">
 
-        <section className="pro-grid two">
-          <div className="pro-card">
-            <div className="pro-card-head">
-              <h2>Upcoming WFH Days</h2>
-              <Link to="/wfh">View All</Link>
+    {/* WFH Distribution */}
+    <div className="pro-card">
+        <div className="pro-card-head">
+            <h2>WFH Distribution</h2>
+            <span>Current Year</span>
+        </div>
+
+        <WFHPieChart records={records} />
+    </div>
+
+    {/* Company Policy */}
+    <div className="pro-card">
+        <div className="pro-card-head">
+            <h2>Company WFH Policy</h2>
+            <span>Current Rules</span>
+        </div>
+
+        <div className="policy-list">
+
+            <div className="policy-item">
+                <h4>Annual WFH Quota</h4>
+                <p>24 Work From Home days per calendar year.</p>
             </div>
 
-            <div className="professional-list">
-              {upcomingWFH.length === 0 ? (
-                <p className="empty-text">No upcoming WFH days found.</p>
-              ) : (
-                upcomingWFH.map((item) => (
-                  <div className="professional-row" key={item._id}>
-                    <div>
-                      <h3>{formatDate(item.date)}</h3>
-                      <p>{item.status} WFH Day</p>
-                    </div>
-
-                    <span
-                      className={`status-pill ${item.status?.toLowerCase()}`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                ))
-              )}
+            <div className="policy-item">
+                <h4>Monthly Allocation</h4>
+                <p>2 system allocated WFH days every month.</p>
             </div>
-          </div>
 
-          <TeamWFHToday />
-        </section>
+            <div className="policy-item">
+                <h4>Swap Policy</h4>
+                <p>Employee swap requests require manager approval.</p>
+            </div>
+
+            <div className="policy-item">
+                <h4>Postpone Policy</h4>
+                <p>Allocated WFH dates can be postponed subject to manager approval.</p>
+            </div>
+
+            <div className="policy-item">
+                <h4>Attendance Requirement</h4>
+                <p>Maintain minimum attendance as per company policy to remain eligible for WFH.</p>
+            </div>
+
+        </div>
+    </div>
+
+</section>
       </div>
     </DashboardLayout>
   );
@@ -196,14 +195,36 @@ function ProgressRow({ title, value, total }) {
     </div>
   );
 }
+function WFHPieChart({ records }) {
+  const used = records.filter((x) => x.status === "Used").length;
+  const upcoming = records.filter(
+    (x) => x.status === "Allocated" || x.status === "Shifted"
+  ).length;
+  const shifted = records.filter((x) => x.status === "Shifted").length;
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const data = [
+    { name: "Used", value: used },
+    { name: "Upcoming", value: upcoming },
+    { name: "Shifted", value: shifted },
+  ];
+
+  return (
+    <div className="chart-safe-box">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={70} outerRadius={105}>
+            <Cell fill="#2563eb" />
+            <Cell fill="#22c55e" />
+            <Cell fill="#f97316" />
+          </Pie>
+          <Legend />
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
+
+
 
 export default Dashboard;

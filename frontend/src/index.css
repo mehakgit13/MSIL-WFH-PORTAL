@@ -2927,3 +2927,217 @@ body {
   gap: 12px;
   margin-top: 20px;
 }
+
+.menu-btn,
+.header-search {
+  display: none !important;
+}
+
+.top-header {
+  justify-content: space-between;
+}
+
+.calendar-team-box {
+  margin-top: 14px;
+  border: 1px solid #e5eaf2;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.calendar-team-box h4 {
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.calendar-team-box p {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.calendar-team-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  background: white;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.calendar-team-row b {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.calendar-team-row span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.react-calendar__tile.calendar-day-wfh abbr,
+.react-calendar__tile.calendar-day-leave abbr,
+.react-calendar__tile.calendar-day-holiday abbr,
+.react-calendar__tile--active abbr {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+}
+
+.calendar-day-wfh abbr {
+  background: #22c55e !important;
+  color: white !important;
+}
+
+.calendar-day-leave abbr {
+  background: #f97316 !important;
+  color: white !important;
+}
+
+.calendar-day-holiday abbr {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+.react-calendar__tile--active abbr {
+  background: #2563eb !important;
+  color: white !important;
+}
+
+.dark-theme .calendar-team-box {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+.dark-theme .calendar-team-box h4,
+.dark-theme .calendar-team-row b {
+  color: #f8fafc !important;
+}
+
+.dark-theme .calendar-team-row {
+  background: #1e293b !important;
+}
+
+.dark-theme .calendar-team-box p,
+.dark-theme .calendar-team-row span {
+  color: #cbd5e1 !important;
+}
+
+@media (max-width: 900px) {
+  .portal-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .portal-body {
+    grid-template-columns: 1fr !important;
+    padding: 14px !important;
+  }
+
+  .right-sidebar {
+    display: none !important;
+  }
+
+  .top-header {
+    padding: 12px 16px !important;
+  }
+
+  .top-header h1 {
+    font-size: 20px !important;
+  }
+
+  .page-hero,
+  .hero-pro {
+    padding: 20px !important;
+    border-radius: 18px !important;
+  }
+
+  .metric-grid.four,
+  .pro-grid.two,
+  .pro-grid.three {
+    grid-template-columns: 1fr !important;
+  }
+
+  .table-pro {
+    overflow-x: auto !important;
+  }
+}
+
+.dashboard-chart-card {
+  min-height: 420px;
+}
+
+.chart-safe-box {
+  width: 100%;
+  height: 310px;
+  min-height: 310px;
+}
+
+.professional-list {
+  display: grid;
+  gap: 14px;
+}
+
+.professional-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e5eaf2;
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+.professional-row h3 {
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.professional-row p {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.dark-theme .professional-row {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-theme .professional-row h3 {
+  color: #f8fafc !important;
+}
+
+.dark-theme .professional-row p {
+  color: #cbd5e1 !important;
+}
+
+.policy-list{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    margin-top:18px;
+}
+
+.policy-item{
+    padding:14px 16px;
+    border-left:4px solid #1f5eff;
+    background:#f8fbff;
+    border-radius:10px;
+}
+
+.policy-item h4{
+    margin:0;
+    font-size:15px;
+    font-weight:700;
+    color:#1f2937;
+}
+
+.policy-item p{
+    margin-top:6px;
+    color:#64748b;
+    line-height:1.5;
+    font-size:14px;
+}
